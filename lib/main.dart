@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_colors.dart';
 import 'features/main_layout/main_layout_screen.dart';
+import 'features/auth/login_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Supabase bağlantısı (Kendi URL ve Key'ini buraya yapıştır)
+  await Supabase.initialize(
+    url: 'https://supabase.com/dashboard/project/nhrwpqqursalzioilkxj',
+    publishableKey: 'sb_publishable_gAgOU0Yu9DEQ2xUpk2PWjQ_VHSZfW9T',
+  );
+
   runApp(const BackloggdApp());
 }
 
@@ -27,7 +37,7 @@ class BackloggdApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const MainLayoutScreen(), // Şimdilik geçici bir ekran
+      home: const LoginScreen(), // Şimdilik giriş ekranı
     );
   }
 }
