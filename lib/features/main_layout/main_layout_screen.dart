@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../home/home_screen.dart';
+import '../log/log_bottom_sheet.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -31,12 +32,17 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       // Merkezdeki Log Butonu (Floating Action Button)
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Buraya Log Bottom Sheet (Açılır menü) eklenecek
-          print("Log tuşuna basıldı!");
+          // Bottom Sheet'i tetikleyen kod
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true, // Klavye açıldığında yukarı kayabilmesi için gerekli
+            backgroundColor: Colors.transparent, // Köşelerin yuvarlak görünmesi için
+            builder: (context) => const LogBottomSheet(),
+          );
         },
         backgroundColor: AppColors.primaryBlue,
         elevation: 4,
-        shape: const CircleBorder(), // Tam yuvarlak olması için
+        shape: const CircleBorder(),
         child: const Icon(Icons.add, color: Colors.white, size: 32),
       ),
       // FAB'ı alt barın tam ortasına oturtma
