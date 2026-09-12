@@ -9,7 +9,7 @@ void main() async {
 
   // Supabase bağlantısı (Kendi URL ve Key'ini buraya yapıştır)
   await Supabase.initialize(
-    url: 'https://supabase.com/dashboard/project/nhrwpqqursalzioilkxj',
+    url: 'https://nhrwpqqursalzioilkxj.supabase.co',
     publishableKey: 'sb_publishable_gAgOU0Yu9DEQ2xUpk2PWjQ_VHSZfW9T',
   );
 
