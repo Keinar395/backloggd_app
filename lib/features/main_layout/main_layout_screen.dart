@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../home/home_screen.dart';
 import '../log/log_bottom_sheet.dart';
+import '../games/games_screen.dart';
+import '../activity/activity_screen.dart';
+import '../profile/profile_screen.dart';
+
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -16,11 +20,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   // Sayfa değiştikçe gösterilecek ekranlar listesi
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Center(child: Text('Games Screen', style: TextStyle(color: Colors.white))),
+    const GamesScreen(),
     // Ortadaki FAB için boş bir index bırakıyoruz (index 2)
     const SizedBox.shrink(), 
-    const Center(child: Text('Notifications Screen', style: TextStyle(color: Colors.white))),
-    const Center(child: Text('Profile Screen', style: TextStyle(color: Colors.white))),
+    const ActivityScreen(),
+    const ProfileScreen(),
   ];
 
   @override
