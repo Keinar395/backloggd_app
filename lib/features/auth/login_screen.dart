@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import 'register_screen.dart';
+import '../../core/services/auth_service.dart';
+import '../main_layout/main_layout_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +14,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  
+  final _authService = AuthService(); // Servisimizi çağırdık
+  bool _isLoading = false; // Yüklenme durumu
 
   @override
   void dispose() {
@@ -72,9 +77,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Giriş Butonu
               ElevatedButton(
-                onPressed: () {
-                  // TODO: Birazdan buraya Supabase giriş kodunu yazacağız
-                  print("Giriş yapılıyor...");
+                onPressed: _isLoading ? null : () async {
+                  if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please fill all fields')),
+                    );
+                    return;
+                  }
+
+                  setState(() { _isLoading = true; });
+
+                  // Servisteki giriş yapma fonksiyonunu tetikle
+                  final error = await _authService.signIn(
+                    email: _emailController.text.trim(),
+                    password: _passwordController.text.trim(),
+                  );
+
+                  if (mounted) {
+                    setState(() { _isLoading = false; });
+                    
+                    if (error != null) {
+                      // Hata varsa ekranda göster (yanlış şifre vb.)
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+                    } else {
+                      // Başarılı giriş yapıldıysa ana sayfaya yönlendir
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
+                        (route) => false,
+                      );
+                    }
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBlue,
@@ -83,14 +116,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
-                  'Sign In',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: _isLoading 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Sign In', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 24),
 
