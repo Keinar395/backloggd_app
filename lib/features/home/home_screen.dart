@@ -1,22 +1,90 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_colors.dart';
+import '../search/search_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  late Future<Map<String, dynamic>> _homeDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _homeDataFuture = _fetchHomeData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Kullanıcı ve log verilerini çeken fonksiyon
+  Future<Map<String, dynamic>> _fetchHomeData() async {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+
+    if (user == null) throw Exception('User not logged in');
+
+    final profileData = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .single();
+
+    final logsData = await supabase
+        .from('user_logs')
+        .select()
+        .eq('user_id', user.id);
+
+    return {
+      'username': profileData['username'] ?? 'Unknown',
+      'logs': logsData as List<dynamic>,
+    };
+  }
+
+  // Arama tuşuna basıldığında çalışacak fonksiyon
+  void _onSearchSubmitted(String query) {
+    if (query.trim().isEmpty) return;
+    
+    // Aramayı tetikleyip yeni ekrana geçiş yapıyoruz
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SearchScreen(query: query),
+      ),
+    );
+    
+    _searchController.clear();
+    FocusScope.of(context).unfocus(); // Klavyeyi kapat
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
+        backgroundColor: AppColors.backgroundDark,
+        elevation: 0,
         title: Container(
           height: 40,
           decoration: BoxDecoration(
             color: AppColors.surfaceDarker,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const TextField(
-            style: TextStyle(color: Colors.white),
-            decoration: InputDecoration(
+          child: TextField(
+            controller: _searchController,
+            style: const TextStyle(color: Colors.white),
+            textInputAction: TextInputAction.search, // Klavyede "Ara" butonu çıkartır
+            onSubmitted: _onSearchSubmitted, // Enter'a basılınca tetiklenir
+            decoration: const InputDecoration(
               hintText: 'Search games, users, lists...',
               hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
@@ -25,72 +93,83 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.primaryBlue,
-              child: Icon(Icons.person, size: 20, color: Colors.white),
-            ),
-          )
-        ],
+        // Sağ üstteki gereksiz profil ikonu kaldırıldı
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildWelcomeSection(),
-              const SizedBox(height: 24),
-              
-              const GameCarouselSection(title: 'Recently Trending'),
-              const SizedBox(height: 24),
-              
-              // Yeni eklediğimiz Popüler İncelemeler kısmı
-              const PopularReviewsSection(),
-              const SizedBox(height: 24),
-              
-              const GameCarouselSection(title: 'Coming Soon'),
-              const SizedBox(height: 24),
-              const GameCarouselSection(title: 'Recently Anticipated'),
-              const SizedBox(height: 40), 
-            ],
-          ),
-        ),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _homeDataFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFFE94264)));
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white)));
+          }
+
+          final data = snapshot.data!;
+          final String username = data['username'];
+          final List<dynamic> logs = data['logs'];
+
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Dinamik Karşılama Ekranı
+                  _buildWelcomeSection(username, logs),
+                  const SizedBox(height: 24),
+                  
+                  // Mock verilerle kalan alt bölümler
+                  const GameCarouselSection(title: 'Recently Trending'),
+                  const SizedBox(height: 24),
+                  const PopularReviewsSection(),
+                  const SizedBox(height: 24),
+                  const GameCarouselSection(title: 'Coming Soon'),
+                  const SizedBox(height: 24),
+                  const GameCarouselSection(title: 'Recently Anticipated'),
+                  const SizedBox(height: 40), 
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildWelcomeSection() {
+  // Dinamik istatistikleri ve ismi işleyen bölüm
+  Widget _buildWelcomeSection(String username, List<dynamic> logs) {
+    // Veritabanından gelen listeyi durumlara göre filtreleyip sayısını alıyoruz
+    final playedCount = logs.where((l) => l['status'] == 'Played').length;
+    final playingCount = logs.where((l) => l['status'] == 'Playing').length;
+    final backlogCount = logs.where((l) => l['status'] == 'Backlog').length;
+    final wishlistCount = logs.where((l) => l['status'] == 'Wishlist').length;
+    final reviewCount = logs.where((l) => l['review_text'] != null && l['review_text'].toString().trim().isNotEmpty).length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 1. Karşılama Metni (Ekrana sığması için Wrap kullanıyoruz)
         Wrap(
           alignment: WrapAlignment.center,
           crossAxisAlignment: WrapCrossAlignment.center,
-          children: const [
-            Text('Welcome back ', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+          children: [
+            const Text('Welcome back ', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
             CircleAvatar(
               radius: 10,
-              backgroundImage: NetworkImage('https://picsum.photos/seed/keinar/20/20'), // Örnek avatar
+              backgroundImage: NetworkImage('https://picsum.photos/seed/$username/20/20'), 
             ),
-            SizedBox(width: 6),
-            Text('Keinar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-            Text(', your collection awaits...', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(username, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            const Text(', your collection awaits...', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
           ],
         ),
         const SizedBox(height: 32),
 
-        // 2. İstatistikler ve Derecelendirme Grafiği
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Sol Taraf: İstatistikler Izgarası
               Expanded(
                 flex: 5,
                 child: Column(
@@ -98,17 +177,17 @@ class HomeScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildStatItem('Played', '138'),
-                        _buildStatItem('Playing', '5'),
-                        _buildStatItem('Reviews', '17'),
+                        _buildStatItem('Played', playedCount.toString()),
+                        _buildStatItem('Playing', playingCount.toString()),
+                        _buildStatItem('Reviews', reviewCount.toString()),
                       ],
                     ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildStatItem('Backlog', '0'),
-                        _buildStatItem('Wishlist', '0'),
+                        _buildStatItem('Backlog', backlogCount.toString()),
+                        _buildStatItem('Wishlist', wishlistCount.toString()),
                         _buildStatItem('Lists', '0'),
                       ],
                     ),
@@ -118,7 +197,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               
-              // Sağ Taraf: Bar Grafiği
               Expanded(
                 flex: 4,
                 child: Column(
@@ -136,7 +214,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Sitedeki ince fontlu ve sade istatistik tasarımı
   Widget _buildStatItem(String label, String value) {
     return Column(
       children: [
@@ -147,9 +224,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Masaüstündeki o meşhur pembe grafik
   Widget _buildRatingsChart() {
-    // 1-5 yıldız arası 10 bar için rastgele yükseklikler (resimdeki görünüme benzer)
     final List<double> heights = [4, 6, 8, 12, 18, 14, 30, 40, 10, 6]; 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -157,29 +232,22 @@ class HomeScreen extends StatelessWidget {
       children: heights.map((h) {
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 1.5),
-          width: 8, // Barların genişliği
-          height: h, // Barların yüksekliği
+          width: 8, 
+          height: h, 
           decoration: BoxDecoration(
-            color: const Color(0xFFE24379), // Backloggd'nin kendi grafik pembesi
+            color: const Color(0xFFE94264), // Orijinal pembeye güncelledim
             borderRadius: BorderRadius.circular(2),
           ),
         );
       }).toList(),
     );
   }
-
-  Widget _buildStatBadge(String number, String label) {
-    return Row(
-      children: [
-        Text(number, style: const TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-      ],
-    );
-  }
 }
 
-// Güncellenmiş Yatay Oyun Listesi (Artık rastgele resim çekiyor)
+// ----------------------------------------------------
+// Mock (Statik) Bölümler Aşağıda Aynen Korunmuştur
+// ----------------------------------------------------
+
 class GameCarouselSection extends StatelessWidget {
   final String title;
 
@@ -220,7 +288,6 @@ class GameCarouselSection extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.surfaceDarker,
                   borderRadius: BorderRadius.circular(8),
-                  // Rastgele oyun kapakları hissi vermesi için Picsum'dan resim çekiyoruz
                   image: DecorationImage(
                     image: NetworkImage('https://picsum.photos/seed/${title.length + index}/105/150'),
                     fit: BoxFit.cover,
@@ -235,7 +302,6 @@ class GameCarouselSection extends StatelessWidget {
   }
 }
 
-// Yeni: Popüler İncelemeler Bölümü
 class PopularReviewsSection extends StatelessWidget {
   const PopularReviewsSection({super.key});
 
@@ -252,7 +318,6 @@ class PopularReviewsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // Şimdilik 2 tane alt alta inceleme kartı gösterelim
         _buildReviewCard('Körkütük Fan', '10/10 masterclass in storytelling. The gameplay loop is addictive and the soundtrack is beautiful.', 5),
         const SizedBox(height: 8),
         _buildReviewCard('IndieGamer', 'A bit repetitive towards the end, but the art style kept me engaged throughout.', 4),
@@ -271,7 +336,6 @@ class PopularReviewsSection extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // İnceleme yapılan oyunun küçük kapağı
           Container(
             width: 50,
             height: 70,
@@ -284,7 +348,6 @@ class PopularReviewsSection extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Kullanıcı bilgisi ve yorum
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +373,7 @@ class PopularReviewsSection extends StatelessWidget {
                   reviewText,
                   style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   maxLines: 3,
-                  overflow: TextOverflow.ellipsis, // Çok uzunsa sonuna ... koyar
+                  overflow: TextOverflow.ellipsis, 
                 ),
               ],
             ),

@@ -50,4 +50,28 @@ class IGDBService {
       throw Exception('Oyunlar yüklenirken hata oluştu');
     }
   }
+
+  // 3. İsime Göre Oyun Arama
+  Future<List<Game>> searchGames(String query) async {
+    await _authenticate();
+
+    final url = Uri.parse('https://api.igdb.com/v4/games');
+    final response = await http.post(
+      url,
+      headers: {
+        'Client-ID': clientId,
+        'Authorization': 'Bearer $_accessToken',
+        'Accept': 'application/json',
+      },
+      // IGDB'ye 'search' komutu ile arama yaptırıyoruz (Kapağı olan 21 oyunu getirir)
+      body: 'search "$query"; fields name, cover.url; where cover != null; limit 21;',
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((json) => Game.fromJson(json)).toList();
+    } else {
+      throw Exception('Oyun aranırken hata oluştu');
+    }
+  }
 }
